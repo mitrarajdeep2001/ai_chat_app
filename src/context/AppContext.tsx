@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Chat, Message, User, Call, NavTab, Settings } from '@/types';
+import { Chat, Message, User, Call, NavTab, Settings, Contact } from '@/types';
 import { chats as initialChats } from '@/data/chats';
 import { allMessages } from '@/data/messages';
 import { generateId } from '@/utils/format';
@@ -61,6 +61,12 @@ interface AppContextType {
   uploadAvatar: (file: File) => Promise<string | null>;
   isEditingProfile: boolean;
   setIsEditingProfile: (v: boolean) => void;
+
+  contacts: Contact[];
+  isFetchingContacts: boolean;
+  addContact: (targetUser: User) => Promise<{ success: boolean; error?: string }>;
+  removeContact: (contactId: string) => Promise<void>;
+  searchUsers: (query: string) => Promise<User[]>;
 }
 
 const defaultSettings: Settings = {
@@ -97,6 +103,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [isFetchingContacts, setIsFetchingContacts] = useState(false);
 
   useEffect(() => {
     // Flag to prevent multiple fetches or stale updates
@@ -130,6 +138,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setIsAuthView(false);
           setIsLoggingOut(false);
           setIsInitialLoading(false);
+          fetchContacts(userProfile.id);
         } else {
           console.log('[Auth] fetchUser: Profile NOT found, starting timeout');
           if (isLoggingOut) return;
@@ -413,6 +422,113 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // ─── Contacts ─────────────────────────────────────────────────────────────
+
+  const fetchContacts = useCallback(async (userId: string) => {
+    setIsFetchingContacts(true);
+    try {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select(`
+          id,
+          user_id,
+          created_at,
+          contact_user:users!contacts_contact_user_id_fkey (
+            id, name, username, email, avatar_url, bio, phone_number
+          )
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('[Contacts] fetchContacts error:', error);
+        return;
+      }
+
+      const mapped: Contact[] = (data || []).map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        createdAt: row.created_at,
+        contactUser: {
+          id: row.contact_user.id,
+          name: row.contact_user.name || row.contact_user.username || row.contact_user.email,
+          username: row.contact_user.username || '',
+          email: row.contact_user.email || '',
+          avatar: row.contact_user.avatar_url || '',
+          bio: row.contact_user.bio || '',
+          phone: row.contact_user.phone_number || '',
+          status: 'offline' as const,
+          lastSeen: new Date().toISOString(),
+        },
+      }));
+      setContacts(mapped);
+    } finally {
+      setIsFetchingContacts(false);
+    }
+  }, [supabase]);
+
+  const searchUsers = useCallback(async (query: string): Promise<User[]> => {
+    if (!query.trim() || !user) return [];
+    const q = query.trim();
+    // PostgREST .or() uses * as wildcard for ilike, not %
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, name, username, email, avatar_url, bio, phone_number')
+      .or(`username.ilike.*${q}*,phone_number.ilike.*${q}*,name.ilike.*${q}*`)
+      .neq('id', user.id)
+      .limit(10);
+
+    if (error) console.error('[Contacts] searchUsers error:', error);
+
+    return (data || []).map((u: any) => ({
+      id: u.id,
+      name: u.name || u.username || u.email,
+      username: u.username || '',
+      email: u.email || '',
+      avatar: u.avatar_url || '',
+      bio: u.bio || '',
+      phone: u.phone_number || '',
+      status: 'offline' as const,
+      lastSeen: new Date().toISOString(),
+    }));
+  }, [supabase, user]);
+
+  const addContact = useCallback(async (targetUser: User): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'Not authenticated.' };
+
+    const alreadyAdded = contacts.some(c => c.contactUser.id === targetUser.id);
+    if (alreadyAdded) return { success: false, error: 'This user is already in your contacts.' };
+
+    const { data: inserted, error } = await supabase
+      .from('contacts')
+      .insert({ user_id: user.id, contact_user_id: targetUser.id })
+      .select('id, user_id, created_at')
+      .single();
+
+    if (error) {
+      console.error('[Contacts] addContact error:', error);
+      return { success: false, error: `Failed to add contact: ${error.message}` };
+    }
+
+    const newContact: Contact = {
+      id: inserted.id,
+      userId: inserted.user_id,
+      createdAt: inserted.created_at,
+      contactUser: targetUser,
+    };
+    setContacts(prev => [newContact, ...prev]);
+    return { success: true };
+  }, [supabase, user, contacts]);
+
+  const removeContact = useCallback(async (contactId: string): Promise<void> => {
+    const { error } = await supabase.from('contacts').delete().eq('id', contactId);
+    if (error) {
+      console.error('[Contacts] removeContact error:', error);
+      throw new Error('Failed to remove contact.');
+    }
+    setContacts(prev => prev.filter(c => c.id !== contactId));
+  }, [supabase]);
+
   const refreshSmartReplies = useCallback((chatId: string) => {
     const chatMessages = messages[chatId] || [];
     const lastMessage = chatMessages[chatMessages.length - 1];
@@ -420,6 +536,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCurrentSmartReplies(getContextualReplies(lastMessage.content));
     }
   }, [messages]);
+
 
   const sendMessage = useCallback((chatId: string, content: string, type: Message['type'] = 'text') => {
     if (!user) return;
@@ -489,7 +606,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       smartReplies: currentSmartReplies, refreshSmartReplies, activeCall, setActiveCall, incomingCall, setIncomingCall,
       startCall, acceptCall, rejectCall, endCall, isAiTyping, settings, updateSettings, showAddContact, setShowAddContact,
       searchQuery, setSearchQuery, user, lastUsedEmail, login, loginWithOAuth, register, verifyEmail, logout, updateProfile, uploadAvatar,
-      isEditingProfile, setIsEditingProfile
+      isEditingProfile, setIsEditingProfile,
+      contacts, isFetchingContacts, addContact, removeContact, searchUsers,
     }}>
       {children}
     </AppContext.Provider>

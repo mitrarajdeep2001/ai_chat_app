@@ -1,13 +1,14 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { MessageCircle, Phone, CirclePlay, Settings } from 'lucide-react';
+import { MessageCircle, Phone, CirclePlay, Settings, Users } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { NavTab } from '@/types';
 import { cn } from '@/lib/utils';
 
 const tabs: { id: NavTab; icon: React.ElementType; label: string }[] = [
   { id: 'chats', icon: MessageCircle, label: 'Chats' },
+  { id: 'contacts', icon: Users, label: 'Contacts' },
   { id: 'calls', icon: Phone, label: 'Calls' },
   { id: 'stories', icon: CirclePlay, label: 'Stories' },
   { id: 'settings', icon: Settings, label: 'Settings' },

@@ -13,6 +13,7 @@ import AddContactModal from '@/features/auth/AddContactModal';
 import CallsPage from '@/features/calls/CallsPage';
 import StoriesPage from '@/features/stories/StoriesPage';
 import SettingsPage from '@/features/settings/SettingsPage';
+import ContactsPage from '@/features/contacts/ContactsPage';
 import { cn } from '@/lib/utils';
 import { SplashScreen } from './SplashScreen';
 
@@ -101,6 +102,11 @@ export default function AppLayout() {
                       <ChatPanel />
                     </motion.div>
                   )}
+                  {activeTab === 'contacts' && (
+                    <motion.div key="contacts" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full overflow-y-auto">
+                      <ContactsPage />
+                    </motion.div>
+                  )}
                   {activeTab === 'calls' && (
                     <motion.div key="calls" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full overflow-y-auto">
                       <CallsPage />
@@ -128,6 +134,11 @@ export default function AppLayout() {
                   {activeTab === 'chats' && (
                     <motion.div key="sidebar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
                       <Sidebar />
+                    </motion.div>
+                  )}
+                  {activeTab === 'contacts' && (
+                    <motion.div key="contacts" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full flex flex-col">
+                      <ContactsPage />
                     </motion.div>
                   )}
                   {activeTab === 'calls' && (

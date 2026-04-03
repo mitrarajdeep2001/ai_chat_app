@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, Phone, CirclePlay, Settings, Plus, LogOut, User as UserIcon } from 'lucide-react';
+import { MessageCircle, Phone, CirclePlay, Settings, Plus, LogOut, User as UserIcon, Users } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useState, useRef, useEffect } from 'react';
 import { NavTab } from '@/types';
@@ -11,6 +11,7 @@ import { currentUser } from '@/data/users';
 
 const tabs: { id: NavTab; icon: React.ElementType; label: string }[] = [
   { id: 'chats', icon: MessageCircle, label: 'Chats' },
+  { id: 'contacts', icon: Users, label: 'Contacts' },
   { id: 'calls', icon: Phone, label: 'Calls' },
   { id: 'stories', icon: CirclePlay, label: 'Stories' },
   { id: 'settings', icon: Settings, label: 'Settings' },

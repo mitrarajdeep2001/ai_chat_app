@@ -33,6 +33,13 @@ export interface CurrentUser extends User {
   lastSeenPrivacy: 'everyone' | 'contacts' | 'nobody';
 }
 
+export interface Contact {
+  id: string;         // contacts row id
+  userId: string;     // the owner
+  contactUser: User;  // the contact's full profile
+  createdAt: string;
+}
+
 // ============================================================
 // Message Types
 // ============================================================
@@ -189,5 +196,5 @@ export interface Settings {
 // Navigation Types
 // ============================================================
 
-export type NavTab = 'chats' | 'calls' | 'stories' | 'settings';
+export type NavTab = 'chats' | 'contacts' | 'calls' | 'stories' | 'settings';
 export type ActiveView = 'chat' | 'calls' | 'stories' | 'settings' | 'auth' | 'onboarding' | 'addContact';
