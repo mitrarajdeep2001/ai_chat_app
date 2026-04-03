@@ -67,6 +67,7 @@ interface AppContextType {
   addContact: (targetUser: User) => Promise<{ success: boolean; error?: string }>;
   removeContact: (contactId: string) => Promise<void>;
   searchUsers: (query: string) => Promise<User[]>;
+  startDirectMessage: (contactUser: User) => Promise<void>;
 }
 
 const defaultSettings: Settings = {
