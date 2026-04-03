@@ -69,7 +69,7 @@ function SettingsRow({
 }
 
 export default function SettingsPage() {
-  const { settings, updateSettings, setIsAuthView, setAuthView } = useApp();
+  const { settings, updateSettings, setIsAuthView, setAuthView, logout, user } = useApp();
   const { theme, setTheme } = useTheme();
   const [editingProfile, setEditingProfile] = useState(false);
 
@@ -90,15 +90,15 @@ export default function SettingsPage() {
       <div className="mx-4 mb-6 p-4 bg-card border border-border rounded-2xl">
         <div className="flex items-center gap-4">
           <div className="relative">
-            <Avatar src={currentUser.avatar} name={currentUser.name} size="lg" />
+            <Avatar src={user?.avatar} name={user?.name || user?.email || 'User'} size="lg" />
             <button className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center border-2 border-background">
               <Camera size={10} className="text-white" />
             </button>
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="font-bold text-lg truncate">{currentUser.name}</h2>
-            <p className="text-sm text-muted-foreground truncate">@{currentUser.username}</p>
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">{currentUser.bio}</p>
+            <h2 className="font-bold text-lg truncate">{user?.name || user?.email}</h2>
+            <p className="text-sm text-muted-foreground truncate">@{user?.username || 'user'}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">{user?.bio || 'No bio yet'}</p>
           </div>
           <button
             onClick={() => setEditingProfile(!editingProfile)}
@@ -250,15 +250,9 @@ export default function SettingsPage() {
       {/* About */}
       <SettingsSection title="About">
         <SettingsRow icon={Info} label="App Version" subtitle="v1.0.0 (Build 100)" iconClass="bg-slate-500" />
-        <SettingsRow
-          icon={LogOut}
-          label="Log out"
-          iconClass="bg-red-500"
-          onClick={() => { setIsAuthView(true); setAuthView('login'); }}
-        />
       </SettingsSection>
 
-      <div className="h-8" />
+      <div className="h-32" />
     </div>
   );
 }

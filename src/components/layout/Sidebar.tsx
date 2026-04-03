@@ -1,16 +1,29 @@
 'use client';
 
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Search, Plus, MessageCircle, Edit } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Plus, MessageCircle, Edit, LogOut, User as UserIcon, Settings } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import Avatar from '@/components/common/Avatar';
 import ChatListItem from '@/components/chat/ChatListItem';
 import StoriesBar from '@/features/stories/StoriesBar';
 import { stories } from '@/data/stories';
 import { cn } from '@/lib/utils';
 
 export default function Sidebar() {
-  const { chats, activeChatId, setActiveChatId, markAsRead, searchQuery, setSearchQuery, setShowAddContact } = useApp();
+  const { chats, activeChatId, setActiveChatId, markAsRead, searchQuery, setSearchQuery, setShowAddContact, user, logout, setActiveTab } = useApp();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const filteredChats = chats.filter(chat => {
     if (!searchQuery) return true;
@@ -32,11 +45,63 @@ export default function Sidebar() {
     <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-5 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
-            <MessageCircle size={16} className="text-white" />
+        <div className="flex items-center gap-3">
+          <div className="relative" ref={menuRef}>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="relative focus:outline-none"
+            >
+              <Avatar src={user?.avatar} name={user?.name || user?.email || 'User'} size="sm" showStatus status="online" />
+            </motion.button>
+
+            {/* Dropdown Menu */}
+            <AnimatePresence>
+              {showUserMenu && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 10, x: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 15, x: 5 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 10, x: -10 }}
+                  className="absolute top-full left-0 w-48 mt-2 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden py-1.5 focus:outline-none z-50"
+                >
+                  <div className="px-4 py-2 border-b border-border/50 mb-1">
+                    <p className="text-xs font-semibold text-foreground truncate">{user?.name || user?.email}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">@{user?.username || 'user'}</p>
+                  </div>
+                  
+                  <button
+                    onClick={() => { setActiveTab('settings'); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+                  >
+                    <UserIcon size={16} />
+                    <span>Profile</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => { setActiveTab('settings'); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+                  >
+                    <Settings size={16} />
+                    <span>Settings</span>
+                  </button>
+
+                  <div className="h-px bg-border/50 my-1.5" />
+
+                  <button
+                    onClick={async () => { await logout(); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <LogOut size={16} />
+                    <span>Log out</span>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-          <h1 className="font-bold text-lg gradient-text">NexusChat</h1>
+          <div className="flex flex-col">
+            <h1 className="font-bold text-base leading-tight gradient-text">NexusChat</h1>
+            {user && <span className="text-[10px] font-medium text-muted-foreground">Logged in</span>}
+          </div>
         </div>
         <div className="flex items-center gap-1">
           <motion.button
