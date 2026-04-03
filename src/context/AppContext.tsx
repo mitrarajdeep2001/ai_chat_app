@@ -58,6 +58,9 @@ interface AppContextType {
   verifyEmail: (email: string, otp: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
+  uploadAvatar: (file: File) => Promise<string | null>;
+  isEditingProfile: boolean;
+  setIsEditingProfile: (v: boolean) => void;
 }
 
 const defaultSettings: Settings = {
@@ -93,6 +96,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   useEffect(() => {
     // Flag to prevent multiple fetches or stale updates
@@ -114,13 +118,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           console.log('[Auth] fetchUser: Profile found');
           setUser({
             id: userProfile.id,
-            name: userProfile.username || userProfile.email,
+            name: userProfile.name || userProfile.username || userProfile.email,
             username: userProfile.username,
             email: userProfile.email,
             avatar: userProfile.avatar_url,
             status: 'online',
             lastSeen: new Date().toISOString(),
-            bio: '',
+            bio: userProfile.bio || '',
             phone: userProfile.phone_number || ''
           });
           setIsAuthView(false);
@@ -150,14 +154,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               console.log('[Auth] Timeout Check: Profile found on retry');
               setUser({
                 id: retryProfile.id,
-                name: retryProfile.username || retryProfile.email,
+                name: retryProfile.name || retryProfile.username || retryProfile.email,
                 username: retryProfile.username,
                 email: retryProfile.email,
                 avatar: retryProfile.avatar_url,
                 status: 'online',
                 lastSeen: new Date().toISOString(),
-                bio: '',
-                phone: ''
+                bio: retryProfile.bio || '',
+                phone: retryProfile.phone_number || ''
               });
               setIsAuthView(false);
               setIsInitialLoading(false);
@@ -291,13 +295,121 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateProfile = async (updates: Partial<User>) => {
-    if (!user) return;
-    const { error } = await supabase.from('users').update({
-       username: updates.username || updates.name,
-    }).eq('id', user.id);
+    if (!user) {
+      console.error('[Auth] updateProfile: No user found in context');
+      throw new Error('Not authenticated. Please log in again.');
+    }
 
-    if (!error) {
-       setUser(prev => prev ? { ...prev, ...updates } : null);
+    console.log('[Auth] updateProfile: Updating user', user.id, 'with fields:', updates);
+
+    const dbUpdates: any = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.username !== undefined) dbUpdates.username = updates.username;
+    if (updates.bio !== undefined) dbUpdates.bio = updates.bio;
+    if (updates.phone !== undefined) dbUpdates.phone_number = updates.phone;
+    if (updates.avatar !== undefined) dbUpdates.avatar_url = updates.avatar;
+
+    // Check if there are actually updates to make
+    if (Object.keys(dbUpdates).length === 0) {
+      console.log('[Auth] updateProfile: No fields to update');
+      return;
+    }
+
+    try {
+      const { error, data } = await supabase
+        .from('users')
+        .update(dbUpdates)
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[Auth] updateProfile Error:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          updates: dbUpdates,
+          userId: user.id
+        });
+
+        // Map common error codes to user-friendly messages
+        if (error.code === '23505') {
+          if (error.message.includes('username')) {
+            throw new Error('Username is already taken. Please choose another.');
+          } else if (error.message.includes('email')) {
+            throw new Error('Email is already registered.');
+          }
+        } else if (error.code === '42501') {
+          throw new Error('You do not have permission to update this profile.');
+        } else if (error.message.includes('JWT')) {
+          throw new Error('Your session has expired. Please log in again.');
+        }
+
+        throw new Error(`Failed to update profile: ${error.message || 'Unknown error'}`);
+      }
+
+      console.log('[Auth] updateProfile: Successfully updated user', data);
+      setUser(prev => prev ? { ...prev, ...updates } : null);
+      return data;
+    } catch (err: any) {
+      console.error('[Auth] updateProfile Exception:', err);
+      throw err;
+    }
+  };
+
+  const uploadAvatar = async (file: File): Promise<string | null> => {
+    if (!user) {
+      console.error('[Storage] uploadAvatar: No user found');
+      throw new Error('Not authenticated. Please log in again.');
+    }
+
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+      throw new Error('Please upload an image file (JPEG, PNG, GIF, etc.).');
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error('Image must be less than 5MB.');
+    }
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user.id}/avatar.${fileExt}`;
+    
+    console.log('[Storage] Uploading avatar:', {
+      userId: user.id,
+      fileName,
+      fileSize: file.size,
+      fileType: file.type
+    });
+
+    try {
+      console.log('[Storage] uploadAvatar START:', fileName);
+      const { error: uploadError, data: uploadData } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { 
+          cacheControl: '3600', 
+          upsert: true 
+        });
+        
+      if (uploadError) {
+        console.error('[Storage] uploadAvatar Error (Raw):', uploadError);
+        const error: any = new Error(uploadError.message || 'Upload failed');
+        error.code = uploadError.statusCode || (uploadError as any).status || 'UNKNOWN';
+        error.details = (uploadError as any).details || '';
+        throw error;
+      }
+      
+      console.log('[Storage] uploadAvatar SUCCESS', uploadData);
+      const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+      return `${data.publicUrl}?t=${new Date().getTime()}`;
+    } catch (err: any) {
+      console.error('[Storage] uploadAvatar Exception:', {
+        message: err.message,
+        details: err.details,
+        code: err.code
+      });
+      throw err;
     }
   };
 
@@ -376,7 +488,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isAuthView, setIsAuthView, authView, setAuthView, isInitialLoading, chats, messages, sendMessage, markAsRead,
       smartReplies: currentSmartReplies, refreshSmartReplies, activeCall, setActiveCall, incomingCall, setIncomingCall,
       startCall, acceptCall, rejectCall, endCall, isAiTyping, settings, updateSettings, showAddContact, setShowAddContact,
-      searchQuery, setSearchQuery, user, lastUsedEmail, login, loginWithOAuth, register, verifyEmail, logout, updateProfile
+      searchQuery, setSearchQuery, user, lastUsedEmail, login, loginWithOAuth, register, verifyEmail, logout, updateProfile, uploadAvatar,
+      isEditingProfile, setIsEditingProfile
     }}>
       {children}
     </AppContext.Provider>

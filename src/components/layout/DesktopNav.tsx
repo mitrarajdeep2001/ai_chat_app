@@ -17,7 +17,7 @@ const tabs: { id: NavTab; icon: React.ElementType; label: string }[] = [
 ];
 
 export default function DesktopNav() {
-  const { activeTab, setActiveTab, chats, user, logout } = useApp();
+  const { activeTab, setActiveTab, chats, user, logout, setIsEditingProfile } = useApp();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const totalUnread = chats.reduce((sum, c) => sum + c.unreadCount, 0);
@@ -96,7 +96,7 @@ export default function DesktopNav() {
               </div>
               
               <button
-                onClick={() => { setActiveTab('settings'); setShowUserMenu(false); }}
+                onClick={() => { setActiveTab('settings'); setIsEditingProfile(true); setShowUserMenu(false); }}
                 className="w-full flex items-center gap-3 px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
               >
                 <UserIcon size={16} />

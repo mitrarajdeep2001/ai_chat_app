@@ -11,7 +11,7 @@ import { stories } from '@/data/stories';
 import { cn } from '@/lib/utils';
 
 export default function Sidebar() {
-  const { chats, activeChatId, setActiveChatId, markAsRead, searchQuery, setSearchQuery, setShowAddContact, user, logout, setActiveTab } = useApp();
+  const { chats, activeChatId, setActiveChatId, markAsRead, searchQuery, setSearchQuery, setShowAddContact, user, logout, setActiveTab, setIsEditingProfile } = useApp();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -70,7 +70,7 @@ export default function Sidebar() {
                   </div>
                   
                   <button
-                    onClick={() => { setActiveTab('settings'); setShowUserMenu(false); }}
+                    onClick={() => { setActiveTab('settings'); setIsEditingProfile(true); setShowUserMenu(false); }}
                     className="w-full flex items-center gap-3 px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
                   >
                     <UserIcon size={16} />

@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Moon, Sun, Monitor, Bell, BellOff, Shield, ChevronRight, LogOut, User, Palette, MessageCircle, Info, Camera } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { currentUser } from '@/data/users';
 import Avatar from '@/components/common/Avatar';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
+import ProfileEditor from './ProfileEditor';
 
 const ToggleSwitch = ({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) => (
   <button
@@ -69,9 +70,8 @@ function SettingsRow({
 }
 
 export default function SettingsPage() {
-  const { settings, updateSettings, setIsAuthView, setAuthView, logout, user } = useApp();
+  const { settings, updateSettings, setIsAuthView, setAuthView, logout, user, isEditingProfile, setIsEditingProfile } = useApp();
   const { theme, setTheme } = useTheme();
-  const [editingProfile, setEditingProfile] = useState(false);
 
   const themeOptions = [
     { value: 'light', icon: Sun, label: 'Light' },
@@ -80,7 +80,23 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background">
+    <div className="flex-1 overflow-y-auto bg-background relative overflow-x-hidden">
+      {/* Profile Editor Overlay */}
+      <AnimatePresence>
+        {isEditingProfile && (
+          <motion.div
+            key="profile-editor"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 250 }}
+            className="absolute inset-0 z-50 bg-background"
+          >
+            <ProfileEditor onClose={() => setIsEditingProfile(false)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="px-4 pt-6 pb-4">
         <h1 className="text-2xl font-bold">Settings</h1>
@@ -101,7 +117,7 @@ export default function SettingsPage() {
             <p className="text-xs text-muted-foreground mt-0.5 truncate">{user?.bio || 'No bio yet'}</p>
           </div>
           <button
-            onClick={() => setEditingProfile(!editingProfile)}
+            onClick={() => setIsEditingProfile(!isEditingProfile)}
             className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0"
           >
             <ChevronRight size={16} className="text-primary" />
